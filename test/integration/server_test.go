@@ -12,11 +12,55 @@ import (
 
 	"github.com/M0d3v1/hafez/internal/command"
 	"github.com/M0d3v1/hafez/internal/server"
+	"github.com/M0d3v1/hafez/internal/store"
 )
 
 func TestRedisClient(t *testing.T) {
+	rdb := startClient(t)
+	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cmdCancel()
+
+	pong, err := rdb.Ping(cmdCtx).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pong != "PONG" {
+		t.Fatalf("PING = %q", pong)
+	}
+
+	echo, err := rdb.Echo(cmdCtx, "hello").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if echo != "hello" {
+		t.Fatalf("ECHO = %q", echo)
+	}
+
+	n, err := rdb.Do(cmdCtx, "COMMAND", "COUNT").Int64()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("COMMAND COUNT = %d", n)
+	}
+
+	err = rdb.Do(cmdCtx, "HGET", "foo", "bar").Err()
+	if err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("HGET error = %v", err)
+	}
+}
+
+func startClient(t *testing.T) *redis.Client {
+	t.Helper()
+	st := store.New()
 	d := command.New()
 	if err := command.RegisterConn(d); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.RegisterStrings(d, st); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.RegisterKeys(d, st); err != nil {
 		t.Fatal(err)
 	}
 	srv := &server.Server{
@@ -48,36 +92,5 @@ func TestRedisClient(t *testing.T) {
 		DisableIdentity: true,
 	})
 	t.Cleanup(func() { _ = rdb.Close() })
-
-	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cmdCancel()
-
-	pong, err := rdb.Ping(cmdCtx).Result()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pong != "PONG" {
-		t.Fatalf("PING = %q", pong)
-	}
-
-	echo, err := rdb.Echo(cmdCtx, "hello").Result()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if echo != "hello" {
-		t.Fatalf("ECHO = %q", echo)
-	}
-
-	n, err := rdb.Do(cmdCtx, "COMMAND", "COUNT").Int64()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n != 0 {
-		t.Fatalf("COMMAND COUNT = %d", n)
-	}
-
-	err = rdb.Get(cmdCtx, "foo").Err()
-	if err == nil || !strings.Contains(err.Error(), "unknown command") {
-		t.Fatalf("GET error = %v", err)
-	}
+	return rdb
 }

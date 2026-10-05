@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/M0d3v1/hafez/internal/command"
 	"github.com/M0d3v1/hafez/internal/server"
@@ -53,7 +54,20 @@ func run(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := srv.ListenAndServe(ctx); err != nil && !errors.Is(err, context.Canceled) {
+	expireDone := make(chan struct{})
+	go func() {
+		defer close(expireDone)
+		st.RunActiveExpire(ctx)
+	}()
+
+	err := srv.ListenAndServe(ctx)
+	stop()
+	select {
+	case <-expireDone:
+	case <-time.After(2 * time.Second):
+		logger.Error("expire loop did not stop")
+	}
+	if err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("server exited", "err", err)
 		return 1
 	}
@@ -68,5 +82,8 @@ func register(d *command.Dispatcher, st store.Store) error {
 	if err := command.RegisterStrings(d, st); err != nil {
 		return err
 	}
-	return command.RegisterKeys(d, st)
+	if err := command.RegisterKeys(d, st); err != nil {
+		return err
+	}
+	return command.RegisterExpire(d, st)
 }

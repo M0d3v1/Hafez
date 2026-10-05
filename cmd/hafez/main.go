@@ -13,6 +13,7 @@ import (
 
 	"github.com/M0d3v1/hafez/internal/command"
 	"github.com/M0d3v1/hafez/internal/server"
+	"github.com/M0d3v1/hafez/internal/store"
 )
 
 func main() {
@@ -36,8 +37,9 @@ func run(args []string) int {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	st := store.New()
 	disp := command.New()
-	if err := command.RegisterConn(disp); err != nil {
+	if err := register(disp, st); err != nil {
 		logger.Error("register commands", "err", err)
 		return 1
 	}
@@ -57,4 +59,14 @@ func run(args []string) int {
 	}
 	logger.Info("shutdown complete")
 	return 0
+}
+
+func register(d *command.Dispatcher, st store.Store) error {
+	if err := command.RegisterConn(d); err != nil {
+		return err
+	}
+	if err := command.RegisterStrings(d, st); err != nil {
+		return err
+	}
+	return command.RegisterKeys(d, st)
 }

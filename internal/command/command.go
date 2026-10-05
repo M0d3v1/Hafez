@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/M0d3v1/hafez/internal/resp"
+	"github.com/M0d3v1/hafez/internal/store"
 )
 
 // Handler runs one command. args[0] is the command name as the client sent it.
@@ -77,4 +78,27 @@ func safeToken(s string) string {
 		return "?"
 	}
 	return s
+}
+
+func syntaxErr() resp.Value {
+	return resp.Error("ERR syntax error")
+}
+
+func notIntegerErr() resp.Value {
+	return resp.Error("ERR value is not an integer or out of range")
+}
+
+func expireErr() resp.Value {
+	return resp.Error("ERR invalid expire time in 'set' command")
+}
+
+func replyErr(err error) resp.Value {
+	switch {
+	case errors.Is(err, store.ErrWrongType):
+		return resp.Error("WRONGTYPE Operation against a key holding the wrong kind of value")
+	case errors.Is(err, store.ErrNotInteger):
+		return notIntegerErr()
+	default:
+		return resp.Error("ERR " + err.Error())
+	}
 }

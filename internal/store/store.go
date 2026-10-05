@@ -57,4 +57,13 @@ type Store interface {
 	Type(key string) string
 	FlushAll()
 	DBSize() int
+	// Expire sets a deadline. A non-positive ttl deletes a live key.
+	// It returns false when the key is missing.
+	Expire(key string, ttl time.Duration) bool
+	// Persist clears a deadline. It returns false when the key is missing
+	// or already has no deadline.
+	Persist(key string) bool
+	// TTL reports how long a key still has to live. exists is false when
+	// the key is missing. expires is false when the key has no deadline.
+	TTL(key string) (remaining time.Duration, exists bool, expires bool)
 }

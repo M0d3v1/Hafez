@@ -14,8 +14,9 @@ type entry struct {
 }
 
 type shard struct {
-	mu   sync.RWMutex
-	data map[string]entry
+	mu      sync.RWMutex
+	data    map[string]entry
+	expires map[string]struct{} // keys that have a deadline
 }
 
 // Memory is a sharded keyspace. Each shard has its own mutex and map.
@@ -42,6 +43,7 @@ func New(opts ...Option) *Memory {
 	m := &Memory{now: time.Now}
 	for i := range m.shards {
 		m.shards[i].data = make(map[string]entry)
+		m.shards[i].expires = make(map[string]struct{})
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -66,6 +68,9 @@ func (m *Memory) Set(key, value string, opt SetOptions) bool {
 	e := entry{typ: TypeString, str: value}
 	if opt.HasTTL {
 		e.expire = m.now().Add(opt.TTL)
+		s.expires[key] = struct{}{}
+	} else {
+		delete(s.expires, key)
 	}
 	s.data[key] = e
 	return true
@@ -94,6 +99,7 @@ func (m *Memory) Del(keys []string) int {
 			return 0
 		}
 		delete(s.data, key)
+		delete(s.expires, key)
 		return 1
 	})
 }
@@ -118,7 +124,9 @@ func (m *Memory) MSet(pairs []Pair) {
 	unlock := m.lockShards(keys)
 	defer unlock()
 	for _, p := range pairs {
-		m.shard(p.Key).data[p.Key] = entry{typ: TypeString, str: p.Value}
+		s := m.shard(p.Key)
+		delete(s.expires, p.Key)
+		s.data[p.Key] = entry{typ: TypeString, str: p.Value}
 	}
 }
 
@@ -223,11 +231,13 @@ func (m *Memory) FlushAll() {
 	}()
 	for i := range m.shards {
 		m.shards[i].data = make(map[string]entry)
+		m.shards[i].expires = make(map[string]struct{})
 	}
 }
 
 // DBSize is the number of entries still in the maps. A key past its deadline
-// stays in this count until some command touches it.
+// stays in this count until a command touches it or the active expire pass
+// samples it.
 func (m *Memory) DBSize() int {
 	n := 0
 	for i := range m.shards {
@@ -264,6 +274,7 @@ func (s *shard) alive(key string, now time.Time) (entry, bool) {
 	}
 	if !e.alive(now) {
 		delete(s.data, key)
+		delete(s.expires, key)
 		return entry{}, false
 	}
 	return e, true

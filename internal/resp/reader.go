@@ -182,10 +182,9 @@ func (rd *Reader) readInlineLine() (string, error) {
 	return strings.TrimSuffix(s, "\r"), nil
 }
 
-// readUntilNewline reads up to and including the next '\n' and returns the
-// bytes before it. requireData reports a mid-value EOF as unexpected when
-// the caller has already consumed a type prefix; both forms do that when any
-// byte was read.
+// readUntilNewline reads up to the next '\n' and returns the bytes before it.
+// fromTyped is set when a type prefix was already consumed, so EOF on an
+// empty buffer is an unexpected EOF rather than a clean end of input.
 func (rd *Reader) readUntilNewline(fromTyped bool) (string, error) {
 	var b strings.Builder
 	for {

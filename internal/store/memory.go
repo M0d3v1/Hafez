@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,9 +18,10 @@ type entry struct {
 }
 
 type shard struct {
-	mu      sync.RWMutex
-	data    map[string]entry
-	expires map[string]struct{} // keys that have a deadline
+	mu       sync.RWMutex
+	data     map[string]entry
+	expires  map[string]struct{} // keys that have a deadline
+	onExpire atomic.Value        // func(string), set before the store is shared
 }
 
 // Memory is a sharded keyspace. Each shard has its own mutex and map.
@@ -276,8 +278,7 @@ func (s *shard) alive(key string, now time.Time) (entry, bool) {
 		return entry{}, false
 	}
 	if !e.alive(now) {
-		delete(s.data, key)
-		delete(s.expires, key)
+		s.dropExpired(key)
 		return entry{}, false
 	}
 	return e, true

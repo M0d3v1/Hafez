@@ -10,6 +10,9 @@ import (
 type entry struct {
 	typ    string
 	str    string
+	list   []string
+	hash   map[string]string
+	fields []string  // hash field order
 	expire time.Time // zero means the key does not expire
 }
 

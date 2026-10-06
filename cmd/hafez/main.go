@@ -26,10 +26,18 @@ func main() {
 func run(args []string) int {
 	fs := flag.NewFlagSet("hafez", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "hafez is a Redis-compatible in-memory server.\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: hafez [flags]\n\n")
+		fs.PrintDefaults()
+	}
 	port := fs.Int("port", 6379, "TCP port to listen on")
 	aofPath := fs.String("aof", "", "append-only file path (empty disables persistence)")
 	fsyncName := fs.String("appendfsync", "everysec", "AOF fsync policy: always, everysec, or no")
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 	if fs.NArg() != 0 {

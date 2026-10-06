@@ -8,8 +8,10 @@ const (
 	// ShardCount is the number of independent key maps.
 	ShardCount = 256
 
-	// TypeString and TypeNone are the TYPE replies used for string keys.
+	// TypeString, TypeList, TypeHash, and TypeNone are TYPE replies.
 	TypeString = "string"
+	TypeList   = "list"
+	TypeHash   = "hash"
 	TypeNone   = "none"
 )
 
@@ -33,6 +35,12 @@ type Pair struct {
 type Item struct {
 	Value string
 	Null  bool
+}
+
+// Field is one hash field and its value.
+type Field struct {
+	Name  string
+	Value string
 }
 
 // SetOptions controls SET. A zero TTL with HasTTL false keeps the key forever.
@@ -66,4 +74,18 @@ type Store interface {
 	// TTL reports how long a key still has to live. exists is false when
 	// the key is missing. expires is false when the key has no deadline.
 	TTL(key string) (remaining time.Duration, exists bool, expires bool)
+
+	LPush(key string, values []string) (int, error)
+	RPush(key string, values []string) (int, error)
+	LPop(key string) (value string, ok bool, err error)
+	RPop(key string) (value string, ok bool, err error)
+	LRange(key string, start, stop int64) ([]string, error)
+	LLen(key string) (int, error)
+
+	HSet(key string, fields []Field) (added int, err error)
+	HGet(key, field string) (value string, ok bool, err error)
+	HDel(key string, fields []string) (int, error)
+	HGetAll(key string) ([]Field, error)
+	HExists(key, field string) (bool, error)
+	HLen(key string) (int, error)
 }

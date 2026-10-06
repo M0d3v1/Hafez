@@ -85,5 +85,11 @@ func register(d *command.Dispatcher, st store.Store) error {
 	if err := command.RegisterKeys(d, st); err != nil {
 		return err
 	}
-	return command.RegisterExpire(d, st)
+	if err := command.RegisterExpire(d, st); err != nil {
+		return err
+	}
+	if err := command.RegisterLists(d, st); err != nil {
+		return err
+	}
+	return command.RegisterHashes(d, st)
 }

@@ -44,9 +44,9 @@ func TestRedisClient(t *testing.T) {
 		t.Fatalf("COMMAND COUNT = %d", n)
 	}
 
-	err = rdb.Do(cmdCtx, "HGET", "foo", "bar").Err()
+	err = rdb.Do(cmdCtx, "ZADD", "foo", "1", "bar").Err()
 	if err == nil || !strings.Contains(err.Error(), "unknown command") {
-		t.Fatalf("HGET error = %v", err)
+		t.Fatalf("ZADD error = %v", err)
 	}
 }
 
@@ -64,6 +64,12 @@ func startClient(t *testing.T) *redis.Client {
 		t.Fatal(err)
 	}
 	if err := command.RegisterExpire(d, st); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.RegisterLists(d, st); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.RegisterHashes(d, st); err != nil {
 		t.Fatal(err)
 	}
 	srv := &server.Server{

@@ -8,6 +8,7 @@ func TestRunRejectsBadFlags(t *testing.T) {
 		{"--port", "-1"},
 		{"--not-a-flag"},
 		{"extra"},
+		{"--appendfsync", "sometimes"},
 	}
 	for _, args := range tests {
 		if code := run(args); code != 2 {

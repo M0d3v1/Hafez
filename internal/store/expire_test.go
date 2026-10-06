@@ -92,6 +92,27 @@ func TestActiveExpireCycle(t *testing.T) {
 	}
 }
 
+func TestOnExpire(t *testing.T) {
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	now := start
+	m := New(WithClock(func() time.Time { return now }))
+	var got []string
+	m.OnExpire(func(key string) { got = append(got, key) })
+	m.Set("k", "v", SetOptions{})
+	m.Expire("k", time.Second)
+	m.Set("other", "v", SetOptions{TTL: time.Second, HasTTL: true})
+	now = start.Add(time.Second)
+	if _, ok, _ := m.Get("k"); ok {
+		t.Fatal("lazy expire left the key")
+	}
+	if deleted := m.ActiveExpireCycle(); deleted != 1 {
+		t.Fatalf("deleted %d", deleted)
+	}
+	if len(got) != 2 || got[0] != "k" || got[1] != "other" {
+		t.Fatalf("expired = %v", got)
+	}
+}
+
 func TestRunActiveExpireStops(t *testing.T) {
 	m := New()
 	ctx, cancel := context.WithCancel(context.Background())

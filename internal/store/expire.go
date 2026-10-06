@@ -108,6 +108,27 @@ func (m *Memory) RunActiveExpire(ctx context.Context) {
 	}
 }
 
+// OnExpire registers fn to run when a key is removed because its deadline
+// passed. fn runs while that key's shard lock is held, so it must not call
+// back into the store. Set it before the store is shared across goroutines.
+func (m *Memory) OnExpire(fn func(string)) {
+	if fn == nil {
+		return
+	}
+	for i := range m.shards {
+		m.shards[i].onExpire.Store(fn)
+	}
+}
+
+func (s *shard) dropExpired(key string) {
+	delete(s.data, key)
+	delete(s.expires, key)
+	fn, _ := s.onExpire.Load().(func(string))
+	if fn != nil {
+		fn(key)
+	}
+}
+
 func (s *shard) expireSample(now time.Time, limit int) (sampled, deleted int) {
 	if len(s.expires) == 0 || limit <= 0 {
 		return 0, 0
@@ -122,9 +143,12 @@ func (s *shard) expireSample(now time.Time, limit int) (sampled, deleted int) {
 	sampled = len(keys)
 	for _, key := range keys {
 		e, ok := s.data[key]
-		if !ok || !e.alive(now) {
-			delete(s.data, key)
+		if !ok {
 			delete(s.expires, key)
+			continue
+		}
+		if !e.alive(now) {
+			s.dropExpired(key)
 			deleted++
 		}
 	}

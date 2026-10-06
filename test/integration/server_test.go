@@ -63,6 +63,9 @@ func startClient(t *testing.T) *redis.Client {
 	if err := command.RegisterKeys(d, st); err != nil {
 		t.Fatal(err)
 	}
+	if err := command.RegisterExpire(d, st); err != nil {
+		t.Fatal(err)
+	}
 	srv := &server.Server{
 		Addr:    "127.0.0.1:0",
 		Handler: d.Dispatch,

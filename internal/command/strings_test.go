@@ -81,6 +81,9 @@ func newKeyspace(t *testing.T, opts ...store.Option) (*Dispatcher, *store.Memory
 	if err := RegisterKeys(d, m); err != nil {
 		t.Fatal(err)
 	}
+	if err := RegisterExpire(d, m); err != nil {
+		t.Fatal(err)
+	}
 	return d, m
 }
 
